@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日の星読み</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1410;
+    --paper: #f5f0e8;
+    --gold: #b8965a;
+    --gold-light: #d4b07a;
+    --deep: #2d1f3d;
+    --muted: #7a6e62;
+    --accent: #8b4f6b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Noto Serif JP', serif;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(184,150,90,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 80% 90%, rgba(45,31,61,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .grain {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+    animation: fadeDown 0.8s ease both;
+  }
+
+  .date-display {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: clamp(22px, 5vw, 28px);
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    color: var(--deep);
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold-light), transparent);
+  }
+  .divider-symbol {
+    color: var(--gold);
+    font-size: 14px;
+    letter-spacing: 0.3em;
+  }
+
+  /* Generate button */
+  .generate-area {
+    text-align: center;
+    margin: 40px 0;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  .btn-generate {
+    background: var(--deep);
+    color: var(--paper);
+    border: none;
+    padding: 16px 48px;
+    font-family: 'Noto Serif JP', serif;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    overflow: hidden;
+  }
+  .btn-generate::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(184,150,90,0.15));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .btn-generate:hover::before { opacity: 1; }
+  .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(45,31,61,0.2); }
+  .btn-generate:active { transform: translateY(0); }
+  .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .btn-hint {
+    display: block;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* Result card */
+  .result-area {
+    display: none;
+    animation: fadeUp 0.6s ease both;
+  }
+  .result-area.visible { display: block; }
+
+  .section-card {
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(184,150,90,0.2);
+    padding: 32px;
+    margin-bottom: 24px;
+    position: relative;
+    backdrop-filter: blur(4px);
+  }
+
+  .section-tag {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-tag::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(184,150,90,0.25);
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--deep);
+    margin-bottom: 16px;
+    letter-spacing: 0.08em;
+  }
+
+  .section-body {
+    font-size: 14px;
+    line-height: 2;
+    color: var(--ink);
+  }
+
+  .keyword-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .keyword {
+    font-size: 11px;
+    padding: 4px 12px;
+    border: 1px solid var(--gold-light);
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  /* Overall message */
+  .overall-card {
+    background: var(--deep);
+    color: var(--paper);
+    padding: 40px 32px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .overall-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(184,150,90,0.12) 0%, transparent 70%);
+  }
+  .overall-tag {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--gold-light);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: block;
+    position: relative;
+  }
+  .overall-message {
+    font-size: clamp(15px, 3vw, 18px);
+    line-height: 2;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    position: relative;
+  }
+  .overall-action {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(184,150,90,0.3);
+    font-size: 13px;
+    color: var(--gold-light);
+    letter-spacing: 0.1em;
+    position: relative;
+  }
+
+  /* Loading */
+  .loading-area {
+    display: none;
+    text-align: center;
+    padding: 60px 0;
+    animation: fadeUp 0.4s ease both;
+  }
+  .loading-area.visible { display: block; }
+
+  .stars-loader {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .star-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .star-dot:nth-child(2) { animation-delay: 0.2s; }
+  .star-dot:nth-child(3) { animation-delay: 0.4s; }
+  .star-dot:nth-child(4) { animation-delay: 0.6s; }
+  .star-dot:nth-child(5) { animation-delay: 0.8s; }
+
+  .loading-text {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+  }
+
+  /* Score bar */
+  .energy-bar-wrap {
+    margin-top: 16px;
+  }
+  .energy-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .energy-bar {
+    height: 3px;
+    background: rgba(184,150,90,0.15);
+    position: relative;
+    overflow: hidden;
+  }
+  .energy-fill {
+    height: 100%;
+    background: linear-gradient(to right, var(--gold), var(--accent));
+    transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    margin-top: 48px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.2; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  .error-msg {
+    text-align: center;
+    padding: 32px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 2;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="container">
+
+  <header>
+    <div class="date-display" id="dateDisplay"></div>
+    <h1>今日の星読み</h1>
+    <div class="subtitle">西洋 · ヴェーダ · 四柱推命</div>
+  </header>
+
+  <div class="divider"><span class="divider-symbol">✦ ✦ ✦</span></div>
+
+  <div class="generate-area" id="generateArea">
+    <button class="btn-generate" id="generateBtn" onclick="generateReading()">
+      今日の星を読む
+    </button>
+    <span class="btn-hint">タップすると今日の鑑定を生成します</span>
+  </div>
+
+  <div class="loading-area" id="loadingArea">
+    <div class="stars-loader">
+      <div class="star-dot"></div>
+      <div class="star-dot"></div>
+      <div class="star-dot"></div>
+      <div class="star-dot"></div>
+      <div class="star-dot"></div>
+    </div>
+    <p class="loading-text">星の声を聴いています……</p>
+  </div>
+
+  <div class="result-area" id="resultArea"></div>
+
+  <footer>
+    占いは参考のひとつです。最終的な判断はご自身を信頼してください。
+  </footer>
+
+</div>
+
+<script>
+// 今日の日付表示
+const today = new Date();
+const weekdays = ['日','月','火','水','木','金','土'];
+document.getElementById('dateDisplay').textContent =
+  `${today.getFullYear()} . ${String(today.getMonth()+1).padStart(2,'0')} . ${String(today.getDate()).padStart(2,'0')}  ${weekdays[today.getDay()]}曜日`;
+
+// 彩音さんの命式データ（過去の鑑定より）
+const NATAL_DATA = {
+  western: {
+    sun: "乙女座・第8ハウス",
+    moon: "第7ハウス",
+    mercury: "乙女座・第8ハウス（ノースノードと合）",
+    venus_mars_pluto: "第10ハウスに集中",
+    neptune: "水星とトライン",
+    ascendant: "山羊座系"
+  },
+  vedic: {
+    mercury: "乙女座・第9H（自家・最強）",
+    venus: "天秤座（自家）",
+    moon: "マガー・ナクシャトラ・第9H",
+    rahu: "第9H",
+    mars: "第12H（アヌラーダー）",
+    currentMD: "太陽マハダシャー",
+    currentAD: "土星アンタルダシャー"
+  },
+  fourPillars: {
+    dayMaster: "癸水（陰の水）",
+    currentYear: "丙午・正財・絶",
+    currentLuck: "太陽MD・土星AD",
+    strengths: "食神（乙木）の素質",
+    note: "2026年：財のテーマと整理の年"
+  }
+};
+
+async function generateReading() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('loadingArea').classList.add('visible');
+  document.getElementById('generateArea').style.opacity = '0.3';
+  document.getElementById('resultArea').classList.remove('visible');
+  document.getElementById('resultArea').innerHTML = '';
+
+  const todayStr = today.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+  const moonAge = getMoonAge();
+
+  const prompt = `あなたは西洋占星術・ヴェーダ占星術・四柱推命の三術に精通した占星家です。
+以下の命式データを持つ人物（29歳・女性・横浜在住・新婚・クリエイティブ系のフリーランサー）に向けて、今日（${todayStr}）の日次星読みを行ってください。
+
+【命式データ】
+- 西洋占星術：太陽＆水星が乙女座・第8ハウス、水星はノースノードと合、海王星とトライン。金星・火星・冥王星が第10ハウスに集中。月が第7ハウス。
+- ヴェーダ占星術：水星が乙女座・第9H（自家・最強）、ラーフ同居。金星が天秤座（自家）。月がマガー・ナクシャトラ。現在：太陽マハダシャー・土星アンタルダシャー進行中。
+- 四柱推命：日主・癸水（陰の水）。2026年の流年は丙午・正財・絶。蔵干に乙木（食神）の素質。
+
+【今日の天体的背景】
+- 月齢：約${moonAge}（${getMoonPhase(moonAge)}）
+- 今日の日付：${todayStr}
+
+以下のJSON形式のみで返答してください。前置き・後書き・マークダウン・コードブロック不要。JSONのみ。
+
+{
+  "overall_energy": 1〜100の数値,
+  "overall_message": "今日のあなたへ一言（50〜80字のやさしく詩的な言葉）",
+  "action_word": "今日のキーアクション（15字以内）",
+  "western": {
+    "title": "西洋占星術から（20字以内）",
+    "reading": "100〜130字の読み解き",
+    "keywords": ["キーワード1", "キーワード2", "キーワード3"]
+  },
+  "vedic": {
+    "title": "ヴェーダ占星術から（20字以内）",
+    "reading": "100〜130字の読み解き",
+    "keywords": ["キーワード1", "キーワード2", "キーワード3"]
+  },
+  "fourPillars": {
+    "title": "四柱推命から（20字以内）",
+    "reading": "100〜130字の読み解き",
+    "keywords": ["キーワード1", "キーワード2", "キーワード3"]
+  },
+  "caution": "今日ひとつ気をつけること（30字以内）"
+}`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content.map(i => i.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    renderResult(result);
+  } catch (e) {
+    document.getElementById('resultArea').innerHTML = `
+      <div class="error-msg">
+        星の声が届きませんでした。<br>しばらくしてからもう一度お試しください。
+      </div>`;
+    document.getElementById('resultArea').classList.add('visible');
+  } finally {
+    document.getElementById('loadingArea').classList.remove('visible');
+    document.getElementById('generateArea').style.opacity = '1';
+    btn.disabled = false;
+  }
+}
+
+function renderResult(r) {
+  const html = `
+    <div class="overall-card">
+      <span class="overall-tag">✦ Today's Message ✦</span>
+      <p class="overall-message">${r.overall_message}</p>
+      <p class="overall-action">今日のキーアクション ＿ ${r.action_word}</p>
+    </div>
+
+    <div class="section-card">
+      <div class="energy-bar-wrap">
+        <div class="energy-label"><span>今日のエネルギー</span><span>${r.overall_energy} / 100</span></div>
+        <div class="energy-bar"><div class="energy-fill" id="energyFill"></div></div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-tag">Western Astrology ✦</div>
+      <p class="section-title">${r.western.title}</p>
+      <p class="section-body">${r.western.reading}</p>
+      <div class="keyword-row">${r.western.keywords.map(k => `<span class="keyword">${k}</span>`).join('')}</div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-tag">Vedic Astrology ✦</div>
+      <p class="section-title">${r.vedic.title}</p>
+      <p class="section-body">${r.vedic.reading}</p>
+      <div class="keyword-row">${r.vedic.keywords.map(k => `<span class="keyword">${k}</span>`).join('')}</div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-tag">四柱推命 ✦</div>
+      <p class="section-title">${r.fourPillars.title}</p>
+      <p class="section-body">${r.fourPillars.reading}</p>
+      <div class="keyword-row">${r.fourPillars.keywords.map(k => `<span class="keyword">${k}</span>`).join('')}</div>
+    </div>
+
+    <div class="section-card" style="border-color: rgba(139,79,107,0.2);">
+      <div class="section-tag" style="color: var(--accent);">Caution ✦</div>
+      <p class="section-body" style="color: var(--muted);">⚑ ${r.caution}</p>
+    </div>
+  `;
+
+  document.getElementById('resultArea').innerHTML = html;
+  document.getElementById('resultArea').classList.add('visible');
+
+  setTimeout(() => {
+    const fill = document.getElementById('energyFill');
+    if (fill) fill.style.width = r.overall_energy + '%';
+  }, 300);
+}
+
+function getMoonAge() {
+  const known = new Date(2000, 0, 6);
+  const diff = (today - known) / (1000 * 60 * 60 * 24);
+  return Math.round(diff % 29.53);
+}
+
+function getMoonPhase(age) {
+  if (age <= 1) return "新月";
+  if (age <= 7) return "上弦前・月が満ちていく";
+  if (age <= 8) return "上弦の月";
+  if (age <= 14) return "満月へ向かう時期";
+  if (age <= 15) return "満月";
+  if (age <= 22) return "下弦前・月が欠けていく";
+  if (age <= 23) return "下弦の月";
+  return "新月へ向かう時期";
+}
+</script>
+</body>
+</html>
